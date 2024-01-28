@@ -16,6 +16,43 @@ library(stargazer)
 
 data <- read_dta("/Users/willylin/Desktop/ensae/S1/statapp/wsdata_cleaned_signalling.dta")
 
+####### pour balance test 
+
+######### premiere technique qui ne fonctionne pas : il faut ajouter le clusters
+install.packages("rstatix")
+install.packages("ggpubr")
+library(rstatix)
+library(ggpubr)
+
+mean_age <- data
+mean_age$treatment = as.factor(data$treatment) #il faut mettre en factor, sinon treatment est de categorie dbl+lbl : empeche l'anova
+
+mean_age %>%  group_by(treatment) %>% 
+  summarise(
+    count = n(),
+    mean = mean(bl_age, na.rm = TRUE),
+    sd = sd(bl_age, na.rm = TRUE)
+  )
+
+res.aov <- mean_age %>% anova_test(bl_age ~ treatment,   white.adjust = TRUE
+)
+res.aov
+
+######### deuxieme technique 
+install.packages("Hmisc")
+library(Hmisc)
+
+t.test.cluster(data$bl_age, data$bl_block, data$treatment, conf.int = 0.95)
+
+
+# ANOVA Table (type II tests)
+# 
+# Effect DFn  DFd     F    p p<.05     ges
+# 1 treatment   1 6889 0.031 0.86       4.5e-06
+
+#########
+
+
 ######### sommaire 
 
 #1. exploration rapide de la base 

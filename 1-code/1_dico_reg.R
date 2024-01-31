@@ -52,6 +52,26 @@ t.test.cluster(data$bl_age, data$bl_block, data$treatment, conf.int = 0.95)
 
 #########
 
+#########
+# ### stat desc targetsearch 
+# data_no <- data %>% filter(treatment==0)
+# mean(data_no$el_search_target1, na.rm=TRUE)
+# #[1] 0.1485714
+# data_no <- data %>% filter(treatment==1)
+# mean(data_no$el_search_target2, na.rm=TRUE)
+# #[1] 0.2729423
+# data_no <- data %>% filter(treatment==2)
+# mean(data_no$el_search_target3, na.rm=TRUE)
+# # [1]0.1743772
+# #data_no <- data %>% filter(treatment==3)
+# #mean(data_no$el_search_target3, na.rm=TRUE)
+# #[1] 0.1850394
+
+estimates <- lm.cluster(el_search_target1~factor(treatment)+factor(bl_block), cluster='bl_date_baseline',data=data)
+summary(estimates)
+
+
+
 
 ######### sommaire 
 
@@ -757,6 +777,8 @@ plot(CDF_pri, verticals=TRUE, do.points=FALSE, add=TRUE, col='black')
 install.packages("qte")
 library(qte)
 
+data_endline_wage <- data %>% filter(!is.na(el_emp_earn_all_uncd_i))
+
 jt.rand <- ci.qtet(el_emp_earn_all_uncd_i ~ private, data=data_endline_wage, probs=seq(0.6,1,0.025), se=T, iters=10)
 jt.rand <- ci.qtet(el_emp_earn_all_uncd_i ~ public, data=data_endline_wage, probs=seq(0.6,1,0.025), se=T, iters=100)
 ggqte(jt.rand)
@@ -770,29 +792,34 @@ summary(jt.rand)
 ######################################
 
 
-reg_bl_cov(data$el_pctac, data) #skill beliefs , tout ok 
-reg_bl_cov(data$el_selfest_med,data) # med self esteem // pas les memes // meme nb d'obs tout de meme
+reg_bl_cov(data$el_pctac, data) #skill beliefs , tout ok # bon nb d'obs car el_pctac populee a 6607
 
-data_search <- data %>% filter(!is.na(bl_search_any)) #bon nb d'obs 
-reg_bl_cov(data_search$el_search_target1, data_search) # targeted search // proches, 0.49% + meme std 
+reg_bl_cov(data$el_selfest_med,data) # med self esteem // pas mm coefs, mais memes ecarts public-private // bons std // meme nb d'obs tout de meme
+# donc ok 
+
+data_search <- data %>% filter(!is.na(el1_lag)) #bon nb d'obs 
+reg_bl_cov(data_search$el_search_target1, data_search) # targeted search // a peu pres ca aussi, 0.51% + meme std // mais bizarre : ici, le certif prive est meilleur !!!
+mean(data_search$el_search_target1, na.rm=TRUE)
 
 # match <- data %>% filter(!is.na(el_date) & !is.na(el_selfest_demean) & !is.na(el1_lag) & !is.na(el_selfest_med) & !is.na(el_index4) & !is.na(el_index5))
 # toutes des vars apres traitement
 
 data_since_treat <- data %>% filter(!is.na(el1_lag)) #bon nb d'obs 
-reg_transfo(data_since_treat$el_report_use,data_since_treat) # a peu pres ca aussi 
+reg_bl_cov(data_since_treat$el_report_use,data_since_treat) # a peu pres ca aussi 
+mean(data_since_treat$el_report_use, na.rm=TRUE)
 
 interviews <- data %>% filter(!is.na(el1_lag) & !is.na(el_report_ints)) #bon nb d'obs 
 reg_bl_cov(interviews$el_report_ints,interviews) # a peu pres ca aussi 
 
 apps <- data %>% filter(!is.na(el1_lag) & !is.na(el_report_apps_i)) #bon nb d'obs 
-reg_transfo(apps$el_report_apps_i,apps)
+reg_transfo(apps$el_report_apps_i,apps) # a peu pres ca aussi
 
 offers <- data %>% filter(!is.na(el1_lag) & !is.na(el_report_offs)) #bon nb d'obs 
 reg_bl_cov(offers$el_report_offs,offers) # a peu pres ca aussi 
 
-expoffer <- data %>% filter(!is.na(el_belsear_off_i))
-reg_transfo(expoffer$el_belsear_off_i,expoffer)
+expoffer <- data %>% filter(!is.na(el_belsear_off_i)) # bon nb d'obs aussi
+reg_transfo(expoffer$el_belsear_off_i,expoffer) # a peu pres ca aussi
+mean(expoffer$el_belsear_off_i, na.rm=TRUE)
 
 
 

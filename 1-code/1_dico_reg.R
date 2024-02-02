@@ -8,15 +8,119 @@ library(haven)
 library(plm)
 library("labelled")
 library("miceadds")
-library(plm)
 library(estimatr)
 library(stargazer)
 
+######### set path 
+
+setwd("/home/onyxia/work/signalling-heterogeneous-effect/0-dataset")
+
 ######### load data
 
-data <- read_dta("/Users/willylin/Desktop/ensae/S1/statapp/wsdata_cleaned_signalling.dta")
+data <- read_dta("wsdata_cleaned_signalling.dta")
 
-####### pour balance test 
+############################# Pour nathan :
+####### Balance test 
+### to check random assignment 
+####### our treatment variable is multinomial // treatment_i = {0,1,2,3}
+####### so, we can check balance in covariates running the joint F-test of the model
+####### for each covariates X 
+
+#note: another method would be : look for difference in p-value of F-test, taking two-by-two categories 
+#but the paper takes equal means for the Ho of the F-test
+
+# pour el_emp_7d // sans cluster, p-value = 0.003161 // pas coherent
+model <- lm(el_emp_7d ~ as.factor(treatment),data=data)
+summary(model)
+# pour bl_score_num // sans cluster, p-value = 0.4423 // OK, mais pas comme dans le papier : c'est parce que je clusterise pas ! 
+model <- lm(bl_score_num ~ as.factor(treatment),data=data)
+summary(model)
+# pour bl_ed_gr12 // sans cluster, p-value = 0.06034 // OK à 95%, mais pas comme dans le papier : c'est parce que je clusterise pas ! 
+model <- lm(formula = bl_ed_gr12 ~ as.factor(treatment), data = data)
+summary(model)
+
+###### faire avec le cluster 
+### souci etant : on n'a pas le F-test qui s'affiche. peut etre utiliser une autre fonction ? ou faire les choses a la main ?
+model <- lm.cluster(el_emp_7d ~ as.factor(treatment),cluster='bl_date_baseline',data=data)
+
+
+############################ end pour nathan
+
+# ## poubelle de code sur le balancing check: debut 
+# # function : calculate means and perform ANOVA
+# calculate_means_and_anova <- function(yk) {
+#   means <- tapply(yk, data$treatment, function(x) mean(x, na.rm = TRUE))
+#   anova_result <- aov(yk ~ as.factor(data$treatment)) #f-test
+#   p_value <- summary(anova_result)[["Pr(>F)"]][1]
+#   
+#   return(data.frame(Means = means, P_Value = p_value))
+# }
+# 
+# model <- lm.cluster(el_emp_7d ~ as.factor(treatment),cluster='bl_date_baseline',data=data)
+# model <- lm(data$bl_ed_gr12 ~ as.factor(data$treatment))
+# model <- lm(data$bl_score_num ~ as.factor(data$treatment))
+# 
+# estimates <- lm.cluster(el_search_target1~factor(treatment)+factor(bl_block), cluster='bl_date_baseline',data=data)
+# summary(estimates)
+# 
+# 
+# 
+# # Obtain the summary of the model
+# summary_model <- summary(model)
+# summary_model
+# # Extract the p-value from the joint F-test
+# p_value_regression <- summary_model$fstatistic[1, 4]
+# 
+# 
+# 
+# calculate_means_and_anova(data$el_emp_7d)
+# means <- tapply(data$el_emp_7d, data$treatment, function(x) mean(x, na.rm = TRUE))
+# means
+# anova_result <- aov(data$el_emp_7d ~ as.factor(data$treatment)) #compare means between different groups
+# summary(anova_result)
+# 
+# p_value <- anova_result$`as.factor(data$treatment)`[1, 5]
+# p_value
+# 
+# 
+# #also with joint F-test? 
+# 
+# 
+# # Install and load necessary packages
+# install.packages("nnet")
+# library(nnet)
+# 
+# # Fit multinomial logistic regression model
+# model_full <- multinom(treatment ~ bl_ed_gr12
+#                                 +bl_score_num
+#                                 +bl_score_lit
+#                                 +bl_score_cft
+#                                 +bl_score_grit
+#                                 +noncog_score 
+#                                 +bl_belsco_num
+#                                 +bl_belsco_lit_ter 
+#                                 +bl_belsco_cft_ter 
+#                                 +bl_belest_index
+#                                 +bl_age
+#                                 +bl_male
+#                                 +bl_emp_7d
+#                                 +bl_time_med
+#                                 +bl_time_presentbias
+#                                 +bl_risk_high
+#                                 +factor(bl_block),data=data)
+# 
+# data_used_by_model_full <- model.frame(model_full)
+# 
+# # Fit null model (only intercept)
+# model_null <- multinom(treatment ~ 1, data = data_used_by_model_full)
+# 
+# 
+# # Perform likelihood ratio test (LR test) for model comparison
+# lr_test <- lrtest(model_full, model_null)
+# 
+# # Perform Wald test for model comparison
+# library(lmtest)
+# wald_test <- waldtest(model_full, "Chisq")
 
 ######### premiere technique qui ne fonctionne pas : il faut ajouter le clusters
 install.packages("rstatix")

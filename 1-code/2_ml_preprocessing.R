@@ -17,7 +17,11 @@ library(stargazer)
 
 data <- read_dta("/Users/willylin/Desktop/ensae/S1/statapp/wsdata_cleaned_signalling.dta")
 
-# 1. dictionary of variables 
+#################################################################################
+#################################################################################
+# Dictionary of variables 
+#################################################################################
+#################################################################################
 
 dico <- function(dataset_to_prompt){
   
@@ -139,9 +143,15 @@ dico <- function(dataset_to_prompt){
 
 dicotest <- dico(data) #resulting dictionary of variables, without cross-sectioning the dataset
 
-# Preprocessing before GATE and CLAN analyses 
+#################################################################################
+#################################################################################
+# Preprocessing before LASSO, GATE and CLAN analyses 
+#################################################################################
+#################################################################################
+
 
 #1. remove duplicate variables, reduce the number of features ~ 60 variables retained eventually # let the lasso find the features for us
+#################################################################################
 
 var_names <- dico[1]
 
@@ -183,11 +193,12 @@ x_data_to_preprocess <- data[, names(data) %in% var_names_bis_x] #keep columns l
 
 dico3 <- dico(x_data_to_preprocess) # get the var dictionary for features x only 
 
-#2. Preprocessing 
+#2. Preprocessing - returns to 89 features, by :
+#################################################################################
 
-#rescale continuous variables 
-#cut categorical variables into dummies 
-#keep dummies as they are 
+#a. keeping dummies as they are 
+#b. c. rescaling continuous variables 
+#d. splitting categorical variables into dummies 
 
 # a. first, we dissect the dataset into dummies, categorical vars, continuous vars 
 
@@ -201,8 +212,7 @@ continuous <- continuous %>% select(c("variable_name")) #keep only the variable 
 # dummy vars, no need to be preprocessed
 
 dummy <- dico3 %>% subset(unique_count < 3)
-dummy <- dummy %>% select(c("variable_name")) #keep only the variable name to then select within the dataset 
-
+dummy <- dummy %>% select(c("variable_name")) %>% filter(!variable_name %in% c("control", "placebo", "private")) #keep only the variable name to then select within the dataset + keep only the public treatment category, i.e. remove categories private, placebo, control 
 
 # categorical vars to bu cut into dummies 
 
@@ -239,97 +249,49 @@ dico_x_continuous <- dico(x_data_continuous) # check if the rescaling worked - y
 
 # d. categorical vars into dummies
 
-install.packages("dummies")
-library(dummies)
-
 dico_x_categorical <- dico(x_data_categorical)
 
+cat_var <- colnames(x_data_categorical)  # extracting column names from the data frame
 
-# initialisation 
-dummy_variables <- data.frame()
+install.packages("fastDummies")
+library(fastDummies)
+x_data_categorical$bl_race <- x_data_categorical$bl_race - 1 #so that the reference category for race becomes 0
+x_categorical_NA <- dummy_cols(x_data_categorical,select_columns = c(cat_var)) #create dummies for each category, for each variable in the df 
+x_categorical_NA_right_cols <- x_categorical_NA[,-which(names(x_categorical_NA) %in% cat_var)] #keep only the created dummies, remove the initial categorical variables 
 
+var_categorical <- colnames(x_categorical_NA_right_cols) #list of variables in the categorical dataset. we now want to remove the reference dummies
+var_cat_to_remove_index <- grep("_0$",var_categorical) #find dummies with ref category 0, ending exactly with _0
+var_cat_to_remove <- var_categorical[var_cat_to_remove_index] #show the variables 
+x_categorical_NA_right_cols <- x_categorical_NA_right_cols[, !var_categorical %in% var_cat_to_remove] #finds and removes the names of the variables ending with _0 within the list of colnames
 
-for (column in names(x_data_categorical)){
-  data[[column]] <- factor(data[[column]])
-  data[[column]][is.na(data[[column]])] <- "Missing"
-  dummies <- model.matrix(~ data[[column]] - 1, data = data.frame(data[[column]]))  # create dummy variables for the column
-  colnames(dummies) <- paste0(column, "_", colnames(dummies))   
-  dummy_variables <- bind_cols(dummy_variables, as.data.frame(dummies)) # add the dummy variables to the dummy_variables dataframe
-}
+# columns with NA remain though ! 
 
-######################### poubelle de code below 
+dico_x_categorical <- dico(x_categorical_NA_right_cols) # check if the transfo in dummies worked - yes, see unique_counts and min max
 
-create_dummy_variables <- function(column) {
-  column <- factor(column, levels = unique(na.omit(column)))  # convert column to factor
-  column[is.na(column)] <- "NA"   # eeplace NA values with a placeholder
-  dummies <- model.matrix(~ column - 1, data = data.frame(column))  #create dummy variables for the column
-  colnames(dummies) <- paste0(names(column), "_", colnames(dummies))
-  return(dummies)
-}
+# e. append all 
 
-# apply the function to each column in dataset A
-dummy_variables_list <- lapply(x_data_categorical, create_dummy_variables)
+x_data_preprocessed <- cbind(x_data_dummy, x_data_continuous, x_categorical_NA_right_cols) #append column-wise
 
-x_data_categorical_clean <- as.data.frame(do.call(cbind, dummy_variables_list))
+dico_preprocessed_vars <- dico(x_data_preprocessed) # characteristics of all our 89 features 
 
 
-dico_x_categorical <- dico(x_data_categorical)
+# 3. preprocessing of our endline variables 
+#################################################################################
 
-# finis le preprocessing. il faut mettre toutes les variables et laisser le lasso decider 
+y_data <- data %>% select(el_emp_7d, el_emp_hour_all,el_emp_earn_all,el_search_target1,el_search_target2,el_search_target3,el_search_target4) #keep our outcome variables of interest
 
-# Lasso = get Z variables 
+# preprocessing of the two continuous variables 
 
-# BLP analysis 
+y_data$el_emp_hour_all <- rescale(y_data$el_emp_hour_all) #rescale hours
+y_data$el_emp_earn_all <- rescale(y_data$el_emp_earn_all) #rescale wages
 
-
-
-# CLAN analysis 
-
-
-
-# GATES analysis
+dico_y <- dico(y_data)
 
 
+#################################################################################
+#################################################################################
+# LASSO
+#################################################################################
+#################################################################################
 
-
-
-
-
-
-
-variables_to_preprocess <- data$variable_name[-indices_to_remove]
-
-variables_y <- c(
-  "el_emp_7d","el_emp_recruit_7d","el_emp_hour_all",        
-  "el_search_7d","el_search_hour_7d","el_search_cost_7d",      
-  "el_search_app","el_search_resp","el_search_off",          
-  "el_belsear_app","el_belsear_mo","el_belsear_off" 
-)
-
-
-# we put the treatment variable to preprocess as well, hoping the lasso keeps it
-
-
-variables_x <- c(
-  "bl_dem_grant"           
-  [4] "bl_emp_7d"               "bl_emp_earn_all"         "bl_search_cost"         
-  [7] "bl_search_hour"          "bl_search_app"           "bl_search_off"          
-  [10] "bl_belsco_num"           "bl_belsco_lit_ter"       "bl_belsco_cft_ter"      
-  [13] "bl_belsear_app"          "bl_score_numter"         "bl_score_litter"        
-  [16] "bl_score_cftter"         "bl_score_gritter"        "bl_score_planter"       
-  [19] "bl_score_focuster"       "bl_score_flexter"        "bl_score_contter"       
-  [22] "bl_race" "bl_male" "bl_age") 
-
-# ignored 
-# baseline : "bl_date_baseline" "bl_block"  "anonid"  
-# endline :  "el_date"    "el_emp_m1"               "el_emp_m2"               "el_emp_m3"
-# clean : "Edn_Matric"              "Edn_Cert"                "Edn_Degree"   
-
-# added vars 
-# bl_emp_earn_all, wage baseline, is not completely populated - may explain heterogeneous effect among public?
-# bl_score_contter
-
-# we should use unconditional data !!!! 
-
-# transform categorical vars into dummies 
 

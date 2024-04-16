@@ -15,7 +15,8 @@ library(plm)
 library(estimatr)
 library(stargazer)
 
-data <- read_dta("/Users/willylin/Desktop/ensae/S1/statapp/wsdata_cleaned_signalling.dta")
+data <- read_dta("workspaces/signalling-heterogeneous-effect/0-dataset/wsdata_cleaned_signalling.dta")
+
 
 #################################################################################
 #################################################################################
